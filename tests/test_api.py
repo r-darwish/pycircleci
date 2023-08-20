@@ -19,7 +19,24 @@ def get_mock(api_client, filename):
     with open(filename, "r") as f:
         text = f.read()
         resp = json.loads(text)
-        api_client._request = MagicMock(return_value=resp)
+
+        def _request(*args, **kwargs):
+            params = kwargs.get("params", {})
+            if not params:
+                return resp
+
+            page = params.get("page", 1)
+            per_page = params.get("per-page", len(resp))
+
+            start_index = (page - 1) * per_page
+            end_index = start_index + per_page
+
+            if start_index >= len(resp):
+                return []
+
+            return resp[start_index:end_index]
+
+        api_client._request = MagicMock(side_effect=_request)
         # Spy on this, but don't mock its return value
         api_client._request_get_items = MagicMock(wraps=api_client._request_get_items)
 
@@ -67,7 +84,6 @@ def test_get_user_repos(cci):
     cci._request_get_items.assert_called_once_with(
         "/user/repos/github",
         api_version="v1.1",
-        paginate=False,
         limit=None,
     )
     assert len(resp) == 3
@@ -324,7 +340,6 @@ def test_get_contexts_depaginated(cci):
             "owner-type": "organization",
             "owner-slug": "github/user",
         },
-        paginate=False,
         limit=None,
     )
     assert resp[0]["id"] == TEST_ID
@@ -341,7 +356,6 @@ def test_get_contexts_owner_id(cci):
             "owner-type": "organization",
             "owner-id": TEST_ID,
         },
-        paginate=False,
         limit=None,
     )
     assert resp[0]["name"] == "context1"
@@ -356,7 +370,6 @@ def test_get_contexts_owner_type(cci):
             "owner-type": "account",
             "owner-slug": "github/user",
         },
-        paginate=False,
         limit=None,
     )
     assert resp[0]["name"] == "context1"
@@ -425,7 +438,6 @@ def test_get_context_envvars_depaginated(cci):
     resp = cci.get_context_envvars(TEST_ID)
     cci._request_get_items.assert_called_once_with(
         f"context/{TEST_ID}/environment-variable",
-        paginate=False,
         limit=None,
     )
     assert resp[1]["variable"] == "FOOBAR"

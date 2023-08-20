@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Any
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -101,7 +102,7 @@ class Api:
         resp = self._request(GET, endpoint, api_version=API_VER_V2)
         return resp
 
-    def get_user_repos(self, vcs_type=GITHUB, paginate=False, limit=None):
+    def get_user_repos(self, vcs_type=GITHUB, limit=None):
         """Get list of repos accessible to the user.
 
         .. note::
@@ -110,7 +111,6 @@ class Api:
             even if it isn't currently setup.
 
         :param vcs_type: VCS type (github, bitbucket). Defaults to ``github``.
-        :param paginate: If True, repeatedly requests more items from the endpoint until the limit has been reached (or until all results have been fetched). Defaults to False.
         :param limit: Maximum number of items to return. By default returns all the results from multiple calls to the endpoint, or all the results from a single call to the endpoint, depending on the value for ``paginate``.
 
         Endpoint:
@@ -118,8 +118,7 @@ class Api:
         """
         endpoint = f"/user/repos/{vcs_type}"
 
-        resp = self._request_get_items(endpoint, api_version=API_VER_V1,  paginate=paginate, limit=limit)
-        return resp
+        yield from self._request_get_items(endpoint, api_version=API_VER_V1, limit=limit)
 
     def get_project(self, slug):
         """Get a project by project slug.
@@ -398,7 +397,7 @@ class Api:
         resp = self._request(POST, endpoint, api_version=API_VER_V2)
         return resp
 
-    def get_project_pipelines(self, username, project, branch=None, mine=False, vcs_type=GITHUB, paginate=False, limit=None):
+    def get_project_pipelines(self, username, project, branch=None, mine=False, vcs_type=GITHUB, limit=None):
         """Get all pipelines configured for a project.
 
         :param username: Org or user name.
@@ -406,7 +405,6 @@ class Api:
         :param branch: Restricts returned pipelines to a single branch. Ignored if ``mine`` is True.
         :param mine: Restricts returned results to pipelines triggered by the current user. Defaults to False.
         :param vcs_type: VCS type (github, bitbucket). Defaults to ``github``.
-        :param paginate: If True, repeatedly requests more items from the endpoint until the limit has been reached (or until all results have been fetched). Defaults to False.
         :param limit: Maximum number of items to return. By default returns all the results from multiple calls to the endpoint, or all the results from a single call to the endpoint, depending on the value for ``paginate``.
 
         Endpoint:
@@ -418,8 +416,7 @@ class Api:
         endpoint = f"project/{slug}/pipeline"
         if mine:
             endpoint += "/mine"
-        resp = self._request_get_items(endpoint, params=params, paginate=paginate, limit=limit)
-        return resp
+        yield from self._request_get_items(endpoint, params=params, limit=limit)
 
     def get_project_pipeline(self, username, project, pipeline_num, vcs_type=GITHUB):
         """Get full details of a given project pipeline by pipeline number.
@@ -464,19 +461,17 @@ class Api:
         :param username: Org or user name.
         :param mine: Only include entries created by your user. Defaults to False.
         :param vcs_type: VCS type (github, bitbucket). Defaults to ``github``.
-        :param paginate: If True, repeatedly requests more items from the endpoint until the limit has been reached (or until all results have been fetched). Defaults to False.
         :param limit: Maximum number of items to return. By default returns all the results from multiple calls to the endpoint, or all the results from a single call to the endpoint, depending on the value for ``paginate``.
 
         Endpoint:
             GET ``/pipeline``
         """
-        params = {"org-slug": self.owner_slug(username, vcs_type)}
+        params: dict[str, Any] = {"org-slug": self.owner_slug(username, vcs_type)}
         if mine:
             params["mine"] = True
 
         endpoint = "pipeline"
-        resp = self._request_get_items(endpoint, params=params, paginate=paginate, limit=limit)
-        return resp
+        yield from self._request_get_items(endpoint, params=params, limit=limit)
 
     def get_pipeline(self, pipeline_id):
         """Get full details of a given pipeline.
@@ -502,19 +497,17 @@ class Api:
         resp = self._request(GET, endpoint, api_version=API_VER_V2)
         return resp
 
-    def get_pipeline_workflow(self, pipeline_id, paginate=False, limit=None):
+    def get_pipeline_workflow(self, pipeline_id, limit=None):
         """Get the workflow of a given pipeline.
 
         :param pipeline_id: Pipieline ID.
-        :param paginate: If True, repeatedly requests more items from the endpoint until the limit has been reached (or until all results have been fetched). Defaults to False.
         :param limit: Maximum number of items to return. By default returns all the results from multiple calls to the endpoint, or all the results from a single call to the endpoint, depending on the value for ``paginate``.
 
         Endpoint:
             GET ``/pipeline/:pipeline-id/workflow``
         """
         endpoint = f"pipeline/{pipeline_id}/workflow"
-        resp = self._request_get_items(endpoint, paginate=paginate, limit=limit)
-        return resp
+        yield from self._request_get_items(endpoint, limit=limit)
 
     def get_workflow(self, workflow_id):
         """Get summary details of a given workflow.
@@ -532,15 +525,13 @@ class Api:
         """Get list of jobs of a given workflow.
 
         :param workflow_id: Workflow ID.
-        :param paginate: If True, repeatedly requests more items from the endpoint until the limit has been reached (or until all results have been fetched). Defaults to False.
         :param limit: Maximum number of items to return. By default returns all the results from multiple calls to the endpoint, or all the results from a single call to the endpoint, depending on the value for ``paginate``.
 
         Endpoint:
             GET ``/workflow/:workflow-id/job``
         """
         endpoint = f"workflow/{workflow_id}/job"
-        resp = self._request_get_items(endpoint, paginate=paginate, limit=limit)
-        return resp
+        yield from self._request_get_items(endpoint, limit=limit)
 
     def cancel_workflow(self, workflow_id):
         """Cancel a workflow.
@@ -857,8 +848,7 @@ class Api:
         :param username: Org or user name.
         :param owner_id: UUID of owner (use either ``username`` or ``owner_id``).
         :param owner_type: Either ``organization`` or ``account``. Defaults to ``organization``.
-        :param vcs_type: VCS type (github, bitbucket). Defaults to ``github``.
-        :param paginate: If True, repeatedly requests more items from the endpoint until the limit has been reached (or until all results have been fetched). Defaults to False..
+        :param vcs_type: VCS type (github, bitbucket). Defaults to ``github``..
         :param limit: Maximum number of items to return. By default returns all the results from multiple calls to the endpoint, or all the results from a single call to the endpoint, depending on the value for ``paginate``.
 
         Endpoint:
@@ -872,8 +862,7 @@ class Api:
             params["owner-id"] = owner_id
 
         endpoint = "context"
-        resp = self._request_get_items(endpoint, params=params, paginate=paginate, limit=limit)
-        return resp
+        yield from self._request_get_items(endpoint, params=params, limit=limit)
 
     def get_context(self, context_id):
         """Get a context.
@@ -925,16 +914,14 @@ class Api:
     def get_context_envvars(self, context_id, paginate=False, limit=None):
         """Get environment variables for a context.
 
-        :param context_id: ID of context to retrieve environment variables from.
-        :param paginate: If True, repeatedly requests more items from the endpoint until the limit has been reached (or until all results have been fetched). Defaults to False..
+        :param context_id: ID of context to retrieve environment variables from..
         :param limit: Maximum number of items to return. By default returns all the results from multiple calls to the endpoint, or all the results from a single call to the endpoint, depending on the value for ``paginate``.
 
         Endpoint:
             GET ``/context/:context-id/environment-variable``
         """
         endpoint = f"context/{context_id}/environment-variable"
-        resp = self._request_get_items(endpoint, paginate=paginate, limit=limit)
-        return resp
+        yield from self._request_get_items(endpoint, limit=limit)
 
     def add_context_envvar(self, context_id, name, value):
         """Add or update an environment variable to a context.
@@ -1037,7 +1024,6 @@ class Api:
         :param project: Repo name.
         :param params: Optional query parameters.
         :param vcs_type: VCS type (github, bitbucket). Defaults to ``github``.
-        :param paginate: If True, repeatedly requests more items from the endpoint until the limit has been reached (or until all results have been fetched). Defaults to False.
         :param limit: Maximum number of items to return. By default returns all the results from multiple calls to the endpoint, or all the results from a single call to the endpoint, depending on the value for ``paginate``.
 
         Endpoint:
@@ -1045,8 +1031,7 @@ class Api:
         """
         slug = self.project_slug(username, project, vcs_type)
         endpoint = f"insights/{slug}/workflows"
-        resp = self._request_get_items(endpoint, params=params, paginate=paginate, limit=limit)
-        return resp
+        yield from self._request_get_items(endpoint, params=params, limit=limit)
 
     def get_project_workflow_metrics(self, username, project, workflow_name, params=None, vcs_type=GITHUB, paginate=False, limit=None):
         """Get metrics of recent runs of a project workflow.
@@ -1056,7 +1041,6 @@ class Api:
         :param workflow_name: Workflow name
         :param params: Optional query parameters.
         :param vcs_type: VCS type (github, bitbucket). Defaults to ``github``.
-        :param paginate: If True, repeatedly requests more items from the endpoint until the limit has been reached (or until all results have been fetched). Defaults to False.
         :param limit: Maximum number of items to return. By default returns all the results from multiple calls to the endpoint, or all the results from a single call to the endpoint, depending on the value for ``paginate``.
 
         Endpoint:
@@ -1064,8 +1048,7 @@ class Api:
         """
         slug = self.project_slug(username, project, vcs_type)
         endpoint = f"insights/{slug}/workflows/{workflow_name}"
-        resp = self._request_get_items(endpoint, params=params, paginate=paginate, limit=limit)
-        return resp
+        yield from self._request_get_items(endpoint, params=params, limit=limit)
 
     def get_project_workflow_test_metrics(self, username, project, workflow_name, params=None, vcs_type=GITHUB):
         """Get test metrics of recent runs of a project workflow.
@@ -1092,7 +1075,6 @@ class Api:
         :param workflow_name: Workflow name
         :param params: Optional query parameters.
         :param vcs_type: VCS type (github, bitbucket). Defaults to ``github``.
-        :param paginate: If True, repeatedly requests more items from the endpoint until the limit has been reached (or until all results have been fetched). Defaults to False.
         :param limit: Maximum number of items to return. By default returns all the results from multiple calls to the endpoint, or all the results from a single call to the endpoint, depending on the value for ``paginate``.
 
         Endpoint:
@@ -1100,8 +1082,7 @@ class Api:
         """
         slug = self.project_slug(username, project, vcs_type)
         endpoint = f"insights/{slug}/workflows/{workflow_name}/jobs"
-        resp = self._request_get_items(endpoint, params=params, paginate=paginate, limit=limit)
-        return resp
+        yield from self._request_get_items(endpoint, params=params, limit=limit)
 
     def get_project_workflow_job_metrics(self, username, project, workflow_name, job_name, params=None, vcs_type=GITHUB, paginate=False, limit=None):
         """Get metrics of recent runs of a project workflow job.
@@ -1112,7 +1093,6 @@ class Api:
         :param workflow_name: Workflow name
         :param job_name: Job name
         :param params: Optional query parameters.
-        :param paginate: If True, repeatedly requests more items from the endpoint until the limit has been reached (or until all results have been fetched). Defaults to False.
         :param limit: Maximum number of items to return. By default returns all the results from multiple calls to the endpoint, or all the results from a single call to the endpoint, depending on the value for ``paginate``.
 
         Endpoint:
@@ -1120,8 +1100,7 @@ class Api:
         """
         slug = self.project_slug(username, project, vcs_type)
         endpoint = f"insights/{slug}/workflows/{workflow_name}/jobs/{job_name}"
-        resp = self._request_get_items(endpoint, params=params, paginate=paginate, limit=limit)
-        return resp
+        yield from self._request_get_items(endpoint, params=params, limit=limit)
 
     def get_schedules(self, username, project, vcs_type=GITHUB):
         """Get all schedules for a project.
@@ -1265,7 +1244,7 @@ class Api:
             total=retries,
             backoff_factor=backoff_factor,
             status_forcelist=status_forcelist,
-            allowed_methods=False,
+            allowed_methods=None,
             raise_on_redirect=False,
             raise_on_status=False,
             respect_retry_after_header=False,
@@ -1316,13 +1295,12 @@ class Api:
         resp.raise_for_status()
         return resp.json()
 
-    def _request_get_items(self, endpoint, params=None, api_version=API_VER_V2, paginate=False, limit=None):
+    def _request_get_items(self, endpoint, params=None, api_version=API_VER_V2, limit=None):
         """Send one or more HTTP GET requests and optionally depaginate results, up to a limit.
 
         :param api_version: API version to use. Defaults to v2
         :param endpoint: API endpoint to GET.
         :param params: Optional query parameters.
-        :param paginate: If True, repeatedly requests more items from the endpoint until the limit has been reached (or until all results have been fetched). Defaults to False.
         :param limit: Maximum number of items to return. By default returns all the results from multiple calls to the endpoint, or all the results from a single call to the endpoint, depending on the value for ``paginate``.
 
         :type params: dict
@@ -1331,25 +1309,26 @@ class Api:
 
         :returns: A list of items which are the combined results of the requests made.
         """
-        results = []
         page = 1
         params = {} if params is None else params.copy()
 
         if api_version == API_VER_V1:
-            # Don't fetch more than limit, but limit to 100 per page max
-            params["per-page"] = limit if limit and limit < 100 else 100
+            # Don't fetch more than limit, but limit to 20 per page max
+            params["per-page"] = limit if limit and limit < 20 else 20
 
+        index = 0
         while True:
             resp = self._request(GET, endpoint, params=params, api_version=api_version)
             # Nested with v2 APIs; flat in v1
             items = resp["items"] if "items" in resp else resp
-            results.extend(items)
+            if not items:
+                return
 
-            # Break on first iteration of the loop if we're not paginating, if
-            # we have an empty list from resp (v1), or if we've already hit our
-            # limit.
-            if not paginate or not resp or (limit and len(results) >= limit):
-                break
+            for item in items:
+                if limit and index >= limit:
+                    return
+                yield item
+                index += 1
 
             page += 1
             if api_version == API_VER_V2:
@@ -1359,8 +1338,6 @@ class Api:
                 params["page-token"] = resp["next_page_token"]
             else:
                 params["page"] = page
-
-        return results[:limit]
 
     def _download(self, url, destdir=None, filename=None):
         """Download artifact file by url.

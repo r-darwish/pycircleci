@@ -63,7 +63,7 @@ def test_get_user_collaborations(cci):
 
 def test_get_user_repos(cci):
     get_mock(cci, "get_user_repos_response.json")
-    resp = cci.get_user_repos()
+    resp = list(cci.get_user_repos())
     cci._request_get_items.assert_called_once_with(
         "/user/repos/github",
         api_version="v1.1",
